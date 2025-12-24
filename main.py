@@ -2,19 +2,32 @@
 """
 假日日历可视化工具
 将放假通知文本转换为精美的日历图片
+
+新版特性：两阶段流水线
+1. AI 解析放假文字 → JSON 结构化数据
+2. Python 渲染基础日历
+3. (可选) AI 图生图美化
 """
 
 import argparse
 import configparser
-import os
+import json
 import sys
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
+from PIL import Image
+
+# 新版模块
+from calendar_renderer import CalendarRenderer
+from img2img import enhance_with_img2img, build_img2img_prompt
+from parser_openai import parse_holiday_text, validate_holiday_data
+
+# 保留旧版兼容性
 from google import genai
 from google.genai import types
-
 from prompts import build_prompt, get_available_styles
 
 
@@ -45,6 +58,117 @@ def get_api_key(config: configparser.ConfigParser) -> str:
     return api_key
 
 
+def generate_calendar_v2(
+    holiday_text: str,
+    api_key: str,
+    style: str = "简约商务风",
+    custom_instruction: str = "",
+    aspect_ratio: str = "16:9",
+    resolution: str = "2K",
+    parser_base_url: str = "https://aihubmix.com/v1",
+    img2img_base_url: str = "https://aihubmix.com/gemini",
+    no_ai: bool = False,
+    save_json: bool = False,
+    save_base: bool = False,
+    parser_model: str = "deepseek-v3.2",
+    img2img_model: str = "gemini-2.5-flash-image",
+) -> bytes:
+    """
+    新版日历生成流程：解析 → 渲染 → (可选)图生图
+
+    Args:
+        holiday_text: 放假通知文本
+        api_key: API Key
+        style: 图片风格
+        custom_instruction: 自定义指令
+        aspect_ratio: 图片比例
+        resolution: 图片分辨率
+        parser_base_url: Parser API 基础 URL (OpenAI 兼容)
+        img2img_base_url: 图生图 API 基础 URL (Google Genai)
+        no_ai: 如果为 True，只进行基础渲染，不调用图生图
+        save_json: 是否保存解析后的 JSON 数据
+        save_base: 是否保存基础日历图片
+        parser_model: 文本解析模型
+        img2img_model: 图生图模型
+
+    Returns:
+        图片二进制数据 (如果是 no_ai 模式，返回基础图片的数据)
+    """
+
+    # Step 1: 解析放假文本为结构化 JSON
+    print("=" * 50)
+    print("Step 1: 解析放假通知文本...")
+    print("=" * 50)
+
+    holiday_data = parse_holiday_text(
+        holiday_text=holiday_text,
+        api_key=api_key,
+        base_url=parser_base_url,
+        model=parser_model
+    )
+
+    # 验证数据
+    validate_holiday_data(holiday_data)
+
+    print(f"解析结果:")
+    print(f"  节假日: {holiday_data['holiday_name']}")
+    print(f"  时间: {holiday_data['start_date']} ~ {holiday_data['end_date']}")
+    print(f"  共 {holiday_data['total_days']} 天")
+    if holiday_data.get('makeup_workdays'):
+        print(f"  调休: {len(holiday_data['makeup_workdays'])} 天")
+
+    # 保存 JSON 数据
+    if save_json:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        json_path = Path.cwd() / f"holiday_data_{timestamp}.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(holiday_data, f, ensure_ascii=False, indent=2)
+        print(f"  JSON 已保存: {json_path}")
+
+    # Step 2: 使用 Python 渲染基础日历
+    print("\n" + "=" * 50)
+    print("Step 2: 渲染基础日历...")
+    print("=" * 50)
+
+    renderer = CalendarRenderer(holiday_data)
+    base_image = renderer.render()
+
+    # 保存基础图片
+    if save_base:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        base_path = Path.cwd() / f"calendar_base_{timestamp}.png"
+        base_image.save(base_path)
+        print(f"  基础日历已保存: {base_path}")
+
+    # --no-ai 模式：直接返回基础图片
+    if no_ai:
+        print("\n--no-ai 模式: 跳过 AI 增强，使用基础日历")
+        img_buffer = BytesIO()
+        base_image.save(img_buffer, format="PNG")
+        return img_buffer.getvalue()
+
+    # Step 3: 使用图生图 API 进行风格化
+    print("\n" + "=" * 50)
+    print("Step 3: AI 图像增强...")
+    print("=" * 50)
+
+    img2img_prompt = build_img2img_prompt(style, custom_instruction)
+
+    enhanced_data = enhance_with_img2img(
+        base_image=base_image,
+        style_prompt=img2img_prompt,
+        api_key=api_key,
+        base_url=img2img_base_url,
+        model=img2img_model,
+        aspect_ratio=aspect_ratio,
+        resolution=resolution,
+    )
+
+    return enhanced_data
+
+
+# ========== 保留旧版 API 以兼容性 ==========
+
 def generate_calendar(
     holiday_text: str,
     api_key: str,
@@ -56,7 +180,7 @@ def generate_calendar(
     model: str = "gemini-3-pro-image-preview",
 ) -> Optional[bytes]:
     """
-    调用 Gemini 3 Pro Image Preview 生成日历图片
+    旧版 API：直接调用 Gemini 生成日历图片
 
     Args:
         holiday_text: 放假通知文本
@@ -128,7 +252,6 @@ def generate_output_filename(holiday_text: str, output_dir: Path, format: str = 
     Returns:
         输出文件路径
     """
-    # 尝试从文本中提取年份和月份
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"holiday_calendar_{timestamp}.{format}"
     return output_dir / filename
@@ -141,14 +264,20 @@ def parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
-  # 基础用法
-  python main.py "2024年春节放假安排：2月9日至17日放假，共9天"
+  # 新版两阶段流水线 (推荐)
+  python main.py "2025年春节：1月28日至2月4日放假调休，共8天"
+
+  # --no-ai 模式 (只生成基础日历，不调用AI增强)
+  python main.py "2025年春节：1月28日至2月4日放假调休，共8天" --no-ai
+
+  # 保存中间文件 (JSON 和基础图片)
+  python main.py "放假通知..." --save-json --save-base
 
   # 指定输出文件
   python main.py "放假通知..." --output my_calendar.png
 
   # 使用不同风格
-  python main.py "放假通知..." --style "现代多彩风"
+  python main.py "放假通知..." --style "中国红喜庆风"
 
   # 使用自定义指令
   python main.py "放假通知..." --custom "使用蓝色主题，添加公司Logo"
@@ -217,6 +346,25 @@ def parse_arguments() -> argparse.Namespace:
         help="输出图片格式 (默认: png)",
     )
 
+    # 新增参数
+    parser.add_argument(
+        "--no-ai",
+        action="store_true",
+        help="只生成基础日历，不调用图生图 API 进行增强",
+    )
+
+    parser.add_argument(
+        "--save-json",
+        action="store_true",
+        help="保存解析后的 JSON 数据",
+    )
+
+    parser.add_argument(
+        "--save-base",
+        action="store_true",
+        help="保存基础渲染的日历图片",
+    )
+
     return parser.parse_args()
 
 
@@ -242,21 +390,36 @@ def main() -> int:
         config = load_config(args.config)
         api_key = get_api_key(config)
 
-        # 获取配置
-        model = config.get("generation", "model", fallback="gemini-3-pro-image-preview")
-        base_url = config.get("generation", "base_url", fallback="https://aihubmix.com/gemini")
+        # Parser API 配置 (OpenAI 兼容)
+        parser_base_url = config.get("parser", "base_url",
+                                      fallback="https://aihubmix.com/v1")
+        parser_model = config.get("parser", "model",
+                                  fallback="deepseek-v3.2")
+
+        # Img2Img API 配置 (Google Genai)
+        img2img_base_url = config.get("generation", "base_url",
+                                       fallback="https://aihubmix.com/gemini")
+        img2img_model = config.get("generation", "model",
+                                   fallback="gemini-2.5-flash-image")
+
+        # 输出配置
         output_dir_str = config.get("output", "output_dir", fallback="")
 
-        # 生成图片
-        image_data = generate_calendar(
+        # 生成图片 (新版两阶段流水线)
+        image_data = generate_calendar_v2(
             holiday_text=args.holiday_text,
             api_key=api_key,
             style=args.style,
             custom_instruction=args.custom,
             aspect_ratio=args.aspect_ratio,
             resolution=args.resolution,
-            base_url=base_url,
-            model=model,
+            parser_base_url=parser_base_url,
+            img2img_base_url=img2img_base_url,
+            no_ai=args.no_ai,
+            save_json=args.save_json,
+            save_base=args.save_base,
+            parser_model=parser_model,
+            img2img_model=img2img_model,
         )
 
         # 确定输出路径
