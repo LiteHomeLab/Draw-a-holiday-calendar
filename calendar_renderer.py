@@ -5,11 +5,36 @@
 """
 
 import calendar
+import configparser
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from PIL import Image, ImageDraw, ImageFont
+
+
+def _load_renderer_config() -> Dict[str, Any]:
+    """从 config.ini 加载渲染器配置"""
+    config = configparser.ConfigParser()
+    config_path = Path(__file__).parent / "config.ini"
+
+    defaults = {
+        "cell_width": 75,
+        "cell_height": 70,
+        "single_month_width": 800,
+        "multi_month_width": 1000,
+        "single_month_content_height": 500,
+        "multi_month_content_height": 600,
+    }
+
+    if config_path.exists():
+        config.read(config_path, encoding="utf-8")
+        if "renderer" in config:
+            for key in defaults:
+                if key in config["renderer"]:
+                    defaults[key] = config["renderer"].getint(key)
+
+    return defaults
 
 
 class CalendarRenderer:
@@ -20,16 +45,19 @@ class CalendarRenderer:
     - 简洁的基础布局，依赖图生图 API 进行美化
     - 清晰显示所有假期信息
     - 跨平台中文字体支持
+    - 根据月份数量动态调整宽度
     """
 
-    # 默认配置
-    DEFAULT_WIDTH = 1400
+    # 默认配置（颜色）
     DEFAULT_HEIGHT = 900
     DEFAULT_BG_COLOR = (255, 255, 255)      # 白色背景
     DEFAULT_TEXT_COLOR = (30, 30, 30)       # 深灰色文字（比纯黑更柔和）
     DEFAULT_HOLIDAY_COLOR = (220, 60, 60)   # 红色标记放假
     DEFAULT_MAKEUP_COLOR = (80, 120, 200)   # 蓝色标记调休
     DEFAULT_GRID_COLOR = (200, 200, 200)    # 网格线颜色
+
+    # 加载配置
+    _renderer_config = _load_renderer_config()
 
     def __init__(self, holiday_data: Dict[str, Any]):
         """
@@ -132,8 +160,8 @@ class CalendarRenderer:
         month: int,
         x: int,
         y: int,
-        cell_width: int = 100,
-        cell_height: int = 70
+        cell_width: int = None,
+        cell_height: int = None
     ) -> int:
         """
         绘制单月日历
@@ -144,12 +172,17 @@ class CalendarRenderer:
             month: 月份
             x: 起始 X 坐标
             y: 起始 Y 坐标
-            cell_width: 单元格宽度
-            cell_height: 单元格高度
+            cell_width: 单元格宽度（默认从配置读取）
+            cell_height: 单元格高度（默认从配置读取）
 
         Returns:
             int: 占用的总高度
         """
+        if cell_width is None:
+            cell_width = self._renderer_config["cell_width"]
+        if cell_height is None:
+            cell_height = self._renderer_config["cell_height"]
+
         cal = calendar.monthcalendar(year, month)
         month_name = f"{year}年{month}月"
         weekdays = ["一", "二", "三", "四", "五", "六", "日"]
@@ -225,7 +258,7 @@ class CalendarRenderer:
 
     def render(
         self,
-        width: int = DEFAULT_WIDTH,
+        width: int = None,
         height: int = DEFAULT_HEIGHT,
         output_path: Optional[Path] = None
     ) -> Image.Image:
@@ -238,13 +271,35 @@ class CalendarRenderer:
         - 日历区：月历网格
 
         Args:
-            width: 图片宽度
+            width: 图片宽度（None 表示根据月份数量自动计算）
             height: 图片高度
             output_path: 可选的保存路径
 
         Returns:
             PIL.Image: 渲染后的图片
         """
+        # 动态计算宽度
+        if width is None:
+            calendar_months = self.data.get("calendar_months")
+            if not calendar_months:
+                # 尝试从 month 字段获取
+                if "month" in self.data:
+                    calendar_months = [self.data["month"]]
+                else:
+                    # 从 start_date 中提取月份
+                    start_date = self.data.get("start_date")
+                    if start_date:
+                        month = datetime.fromisoformat(start_date).month
+                        calendar_months = [month]
+                    else:
+                        calendar_months = [1]
+
+            # 根据月份数量选择宽度
+            if len(calendar_months) == 1:
+                width = self._renderer_config["single_month_width"]
+            else:
+                width = self._renderer_config["multi_month_width"]
+
         # 创建图片
         img = Image.new("RGB", (width, height), self.DEFAULT_BG_COLOR)
         draw = ImageDraw.Draw(img)

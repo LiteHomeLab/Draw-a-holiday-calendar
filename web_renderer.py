@@ -6,14 +6,44 @@ Web 渲染模块 - 使用 FullCalendar 生成美观的放假日历
 - 生成静态 HTML 文件，内嵌 FullCalendar
 - 使用 Playwright 自动打开浏览器截图
 - 无需 Web 服务器，完全本地运行
+- 根据月份数量动态调整宽度和宽高比
 """
 
 import json
 import tempfile
+import configparser
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 from playwright.sync_api import sync_playwright
+
+
+def _load_renderer_config() -> Dict[str, Any]:
+    """从 config.ini 加载渲染器配置"""
+    config = configparser.ConfigParser()
+    config_path = Path(__file__).parent / "config.ini"
+
+    defaults = {
+        "single_month_width": 800,
+        "multi_month_width": 1000,
+        "single_month_content_height": 500,
+        "multi_month_content_height": 600,
+        "aspect_ratio": 1.35,
+    }
+
+    if config_path.exists():
+        config.read(config_path, encoding="utf-8")
+        if "renderer" in config:
+            for key in defaults:
+                if key in config["renderer"]:
+                    # aspect_ratio 是浮点数
+                    if key == "aspect_ratio":
+                        defaults[key] = config["renderer"].getfloat(key)
+                    else:
+                        defaults[key] = config["renderer"].getint(key)
+
+    return defaults
 
 
 class WebCalendarRenderer:
@@ -25,6 +55,9 @@ class WebCalendarRenderer:
     2. 使用 Playwright 打开 HTML
     3. 截图保存
     """
+
+    # 类级别配置
+    _renderer_config = _load_renderer_config()
 
     def __init__(self, holiday_data: Dict[str, Any]):
         """
@@ -68,6 +101,25 @@ class WebCalendarRenderer:
         if self.data.get("notes"):
             notes_html = f'<div class="notes"><div class="notes-text">备注: {self.data["notes"]}</div></div>'
 
+        # 动态计算内容高度
+        calendar_months = self.data.get("calendar_months")
+        if not calendar_months:
+            if "month" in self.data:
+                calendar_months = [self.data["month"]]
+            else:
+                start_date = self.data.get("start_date")
+                if start_date:
+                    month = datetime.fromisoformat(start_date).month
+                    calendar_months = [month]
+                else:
+                    calendar_months = [1]
+
+        # 根据月份数量选择高度
+        if len(calendar_months) == 1:
+            content_height = self._renderer_config["single_month_content_height"]
+        else:
+            content_height = self._renderer_config["multi_month_content_height"]
+
         # 替换模板变量
         replacements = {
             "{{HOLIDAY_NAME}}": self.data.get("holiday_name", "假日日历"),
@@ -80,6 +132,8 @@ class WebCalendarRenderer:
             "{{WORKDAYS_JSON}}": json.dumps(workdays, ensure_ascii=False),
             "{{BADGES_HTML}}": badges_html,
             "{{NOTES_HTML}}": notes_html,
+            "{{ASPECT_RATIO}}": str(self._renderer_config["aspect_ratio"]),
+            "{{CONTENT_HEIGHT}}": str(content_height),
         }
 
         html = template
@@ -91,7 +145,7 @@ class WebCalendarRenderer:
     def render(
         self,
         output_path: Optional[Path] = None,
-        width: int = 1400,
+        width: int = None,
         height: int = 1000,
         save_html: bool = False,
         html_path: Optional[Path] = None
@@ -101,7 +155,7 @@ class WebCalendarRenderer:
 
         Args:
             output_path: 截图保存路径（默认为临时文件）
-            width: 浏览器视口宽度
+            width: 浏览器视口宽度（None 表示根据月份数量自动计算）
             height: 浏览器视口高度
             save_html: 是否保存 HTML 文件
             html_path: HTML 文件保存路径
@@ -109,6 +163,28 @@ class WebCalendarRenderer:
         Returns:
             Path: 截图文件的路径
         """
+        # 动态计算宽度
+        if width is None:
+            calendar_months = self.data.get("calendar_months")
+            if not calendar_months:
+                # 尝试从 month 字段获取
+                if "month" in self.data:
+                    calendar_months = [self.data["month"]]
+                else:
+                    # 从 start_date 中提取月份
+                    start_date = self.data.get("start_date")
+                    if start_date:
+                        month = datetime.fromisoformat(start_date).month
+                        calendar_months = [month]
+                    else:
+                        calendar_months = [1]
+
+            # 根据月份数量选择宽度
+            if len(calendar_months) == 1:
+                width = self._renderer_config["single_month_width"]
+            else:
+                width = self._renderer_config["multi_month_width"]
+
         # 生成 HTML
         html_content = self._generate_html()
 
@@ -146,8 +222,13 @@ class WebCalendarRenderer:
                 else:
                     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-                # 截图
-                page.screenshot(path=str(output_path), full_page=True)
+                # 截取整个 container 区域（包含 header、info-bar、calendar、notes）
+                container_element = page.query_selector(".container")
+                if container_element:
+                    container_element.screenshot(path=str(output_path))
+                else:
+                    # 降级到全页面截图
+                    page.screenshot(path=str(output_path), full_page=False)
 
                 browser.close()
 
