@@ -69,6 +69,54 @@ class WebCalendarRenderer:
         self.data = holiday_data
         self.template_path = Path(__file__).parent / "templates" / "calendar_template.html"
 
+    def _calculate_view_range(self) -> Dict[str, str]:
+        """
+        计算连续周视图的日期范围
+
+        规则：
+        1. 起始：假期开始周的周一
+        2. 结束：补班结束周的周日
+        3. 最小周数：4周（不足则平衡扩展）
+
+        Returns:
+            Dict with 'start_date' and 'end_date' in YYYY-MM-DD format
+        """
+        from datetime import timedelta
+
+        # 收集所有日期
+        dates = []
+        dates.append(datetime.fromisoformat(self.data["start_date"]))
+        dates.append(datetime.fromisoformat(self.data["end_date"]))
+
+        # 处理补班日期
+        for w in self.data.get("makeup_workdays", []):
+            dates.append(datetime.fromisoformat(w["date"]))
+
+        # 找到最早和最晚日期
+        min_date = min(dates)
+        max_date = max(dates)
+
+        # 计算所在周的周一和周日
+        # Monday = 0, Sunday = 6
+        start_monday = min_date - timedelta(days=min_date.weekday())
+        end_sunday = max_date + timedelta(days=(6 - max_date.weekday()))
+
+        # 计算周数
+        week_count = (end_sunday - start_monday).days // 7 + 1
+
+        # 如果不足4周，平衡扩展
+        if week_count < 4:
+            padding_weeks = (4 - week_count) / 2
+            # 向前扩展
+            start_monday -= timedelta(days=int(padding_weeks * 7))
+            # 向后扩展
+            end_sunday += timedelta(days=int((4 - week_count - padding_weeks) * 7))
+
+        return {
+            "start_date": start_monday.strftime("%Y-%m-%d"),
+            "end_date": end_sunday.strftime("%Y-%m-%d")
+        }
+
     def _generate_html(self) -> str:
         """
         根据模板和数据生成 HTML 内容
