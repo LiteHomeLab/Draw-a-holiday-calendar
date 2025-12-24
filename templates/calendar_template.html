@@ -204,6 +204,15 @@
             color: #856404;
             font-size: 14px;
         }
+
+        /* 月份背景色区分 */
+        .fc-day.month-odd {
+            background: #f8f9fa !important;
+        }
+
+        .fc-day.month-even {
+            background: #fffbf0 !important;
+        }
     </style>
 </head>
 <body>
@@ -304,13 +313,16 @@
                     ],
                     dayCellClassNames: function(dateInfo) {
                         const dateStr = dateInfo.dateStr;
+                        const month = parseInt(dateStr.split('-')[1]);
+                        const monthClass = month % 2 === 0 ? 'month-even' : 'month-odd';
+
                         if (config.holidays.some(h => h.date === dateStr)) {
-                            return ['holiday'];
+                            return ['holiday', monthClass];
                         }
                         if (config.workdays.some(w => w.date === dateStr)) {
-                            return ['workday'];
+                            return ['workday', monthClass];
                         }
-                        return [];
+                        return [monthClass];
                     },
                     height: 'auto',
                     contentHeight: {{CONTENT_HEIGHT}},
@@ -376,13 +388,16 @@
                         ],
                         dayCellClassNames: function(dateInfo) {
                             const dateStr = dateInfo.dateStr;
+                            const month = parseInt(dateStr.split('-')[1]);
+                            const monthClass = month % 2 === 0 ? 'month-even' : 'month-odd';
+
                             if (config.holidays.some(h => h.date === dateStr)) {
-                                return ['holiday'];
+                                return ['holiday', monthClass];
                             }
                             if (config.workdays.some(w => w.date === dateStr)) {
-                                return ['workday'];
+                                return ['workday', monthClass];
                             }
-                            return [];
+                            return [monthClass];
                         },
                         height: 'auto',
                         contentHeight: {{CONTENT_HEIGHT}},
