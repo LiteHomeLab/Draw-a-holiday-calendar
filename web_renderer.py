@@ -117,6 +117,34 @@ class WebCalendarRenderer:
             "end_date": end_sunday.strftime("%Y-%m-%d")
         }
 
+    def _should_use_continuous_view(self) -> bool:
+        """
+        判断是否应该使用连续周视图
+
+        Returns:
+            bool: 如果假期跨越两个月，返回 True
+        """
+        # 检查 calendar_months 字段
+        calendar_months = self.data.get("calendar_months")
+        if calendar_months and len(calendar_months) > 1:
+            return True
+
+        # 备用检测：检查 start_date 和 end_date 是否在同一月
+        start_date = self.data.get("start_date")
+        end_date = self.data.get("end_date")
+
+        if start_date and end_date:
+            start_month = datetime.fromisoformat(start_date).month
+            start_year = datetime.fromisoformat(start_date).year
+            end_month = datetime.fromisoformat(end_date).month
+            end_year = datetime.fromisoformat(end_date).year
+
+            # 不同月或不同年，使用连续视图
+            if start_month != end_month or start_year != end_year:
+                return True
+
+        return False
+
     def _generate_html(self) -> str:
         """
         根据模板和数据生成 HTML 内容
