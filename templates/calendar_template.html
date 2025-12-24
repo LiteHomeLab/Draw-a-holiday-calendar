@@ -272,7 +272,7 @@
                 const calendar = new FullCalendar.Calendar(calendarEl, {
                     initialView: 'dayGridWeek',
                     initialDate: config.viewStartDate,
-                    duration: { weeks: weekCount },
+                    duration: { days: weekCount * 7 },
                     locale: 'zh-cn',
                     headerToolbar: {
                         left: '',
