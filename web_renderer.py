@@ -201,21 +201,47 @@ class WebCalendarRenderer:
         # 去重并排序月份
         calendar_months = sorted(set(calendar_months))
 
-        # 构建月份配置数据
+        # 获取年份
         year = self.data.get("year", datetime.now().year)
-        months_config = []
-        for month in calendar_months:
-            months_config.append({
-                "year": year,
-                "month": month,
-                "initial_date": f"{year}-{month:02d}-01"
-            })
 
         # 根据月份数量选择内容高度
         if len(calendar_months) == 1:
             content_height = self._renderer_config["single_month_content_height"]
         else:
             content_height = self._renderer_config["multi_month_content_height"]
+
+        # 判断视图模式
+        use_continuous_view = self._should_use_continuous_view()
+
+        # 计算视图标题和配置
+        if use_continuous_view:
+            # 跨月标题：显示日期范围
+            view_title = f"{self.data.get('start_date', '')} 至 {self.data.get('end_date', '')}"
+            view_mode = "continuous"
+            view_range = self._calculate_view_range()
+            view_start_date = view_range["start_date"]
+            view_end_date = view_range["end_date"]
+
+            # 连续视图使用单一月份配置
+            months_config = [{
+                "year": datetime.fromisoformat(view_start_date).year,
+                "month": datetime.fromisoformat(view_start_date).month,
+                "initial_date": view_start_date
+            }]
+        else:
+            # 单月标题：显示月份
+            view_title = f"{year}年{calendar_months[0]}月"
+            view_mode = "multi-month"
+            view_start_date = ""
+            view_end_date = ""
+            # 保持原有 months_config 生成逻辑
+            months_config = []
+            for month in calendar_months:
+                months_config.append({
+                    "year": year,
+                    "month": month,
+                    "initial_date": f"{year}-{month:02d}-01"
+                })
 
         # 替换模板变量
         replacements = {
@@ -231,8 +257,12 @@ class WebCalendarRenderer:
             "{{NOTES_HTML}}": notes_html,
             "{{ASPECT_RATIO}}": str(self._renderer_config["aspect_ratio"]),
             "{{CONTENT_HEIGHT}}": str(content_height),
-            "{{MONTHS_COUNT}}": str(len(months_config)),
+            "{{MONTHS_COUNT}}": "1" if use_continuous_view else str(len(months_config)),
             "{{MONTHS_CONFIG}}": json.dumps(months_config, ensure_ascii=False),
+            "{{VIEW_MODE}}": view_mode,
+            "{{VIEW_START_DATE}}": view_start_date,
+            "{{VIEW_END_DATE}}": view_end_date,
+            "{{VIEW_TITLE}}": view_title,
         }
 
         html = template
