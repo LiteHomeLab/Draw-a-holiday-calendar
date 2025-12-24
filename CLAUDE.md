@@ -11,13 +11,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Draw-a-holiday-calendar is a Python CLI tool that converts holiday notice text into beautifully designed calendar images using a **three-stage pipeline architecture**:
+Draw-a-holiday-calendar is a Python CLI tool that converts holiday notice text into beautifully designed calendar images using a **two-stage pipeline architecture**:
 
 1. **Parse**: AI extracts structured holiday data (dates, duration, makeup workdays) from text
-2. **Render**: Python + Pillow generates a clean, structured base calendar
-3. **Enhance** (optional): AI image-to-image improves visual styling
+2. **Render**: FullCalendar generates beautiful calendar images
 
-This architecture separates data extraction from visual generation, ensuring date accuracy while enabling creative styling.
+This architecture separates data extraction from visual generation, ensuring date accuracy.
 
 ## Common Commands
 
@@ -25,20 +24,20 @@ This architecture separates data extraction from visual generation, ensuring dat
 # Install dependencies
 uv sync
 
-# Run full pipeline (parse → render → AI enhance)
+# Install Playwright browser
+uv run playwright install
+
+# Generate calendar
 uv run python main.py "2025年春节：1月28日至2月4日放假调休，共8天"
 
-# Base calendar only (no AI enhancement - pure Python)
-uv run python main.py "放假通知..." --no-ai
+# Save JSON data
+uv run python main.py "放假通知..." --save-json
 
-# Save intermediate files for debugging
-uv run python main.py "放假通知..." --save-json --save-base
+# Save HTML file
+uv run python main.py "放假通知..." --save-html
 
-# List available style presets
-uv run python main.py --list-styles
-
-# Custom styling
-uv run python main.py "放假通知..." --style "中国红喜庆风" --aspect-ratio 16:9 --resolution 2K
+# Specify output file
+uv run python main.py "放假通知..." --output my_calendar.png
 ```
 
 ## Architecture
@@ -46,7 +45,7 @@ uv run python main.py "放假通知..." --style "中国红喜庆风" --aspect-ra
 ### Core Pipeline
 
 ```
-holiday_text → parser_openai.py → JSON → calendar_renderer.py → base.png → img2img.py → final.png
+holiday_text → parser_openai.py → JSON → web_renderer.py → calendar.png
 ```
 
 ### Module Responsibilities
@@ -54,10 +53,8 @@ holiday_text → parser_openai.py → JSON → calendar_renderer.py → base.png
 | Module | Purpose | API Used |
 |--------|---------|----------|
 | `parser_openai.py` | Parse holiday text → structured JSON | OpenAI-compatible (deepseek-v3.2) |
-| `calendar_renderer.py` | Render base calendar from JSON | Pure Python (Pillow + calendar) |
-| `img2img.py` | Style enhancement via image-to-image | Google GenAI (gemini-2.5-flash-image) |
+| `web_renderer.py` | Render calendar using FullCalendar | Playwright (screenshot) |
 | `main.py` | CLI entry point and pipeline orchestration | - |
-| `prompts/templates.py` | Style presets and prompt templates | - |
 
 ### JSON Data Schema
 
@@ -78,15 +75,6 @@ The parser produces this structure (validated before rendering):
 }
 ```
 
-### Cross-Platform Font Handling
-
-`CalendarRenderer._get_font()` implements platform-specific font detection:
-
-- **Windows**: 微软雅黑 → 黑体 → 宋体
-- **Linux**: WenQuanYi Microhei → Noto Sans CJK
-- **macOS**: PingFang SC → STHeiti
-- Fallback to default if none found
-
 ## Configuration
 
 `config.ini` contains three sections:
@@ -99,53 +87,31 @@ api_key = sk-...           # AIHubMix API key
 base_url = https://aihubmix.com/v1
 model = deepseek-v3.2      # Text parsing model
 
-[generation]
-base_url = https://aihubmix.com/gemini
-model = gemini-3-pro-image-preview  # Image enhancement model
-aspect_ratio = 16:9
-resolution = 2K
-
 [output]
 output_dir =
 format = png
 ```
 
-## Style Presets
-
-Defined in `prompts/templates.py`:
-
-| Style | Description |
-|-------|-------------|
-| 简约商务风 | Minimalist black/white/gray, corporate |
-| 现代多彩风 | Vibrant gradients, social media friendly |
-| 中国红喜庆风 | Traditional red/gold with lanterns/clouds |
-| 扁平化设计 | Flat UI, solid colors, geometric |
-
 ## Key Implementation Notes
 
 ### CLI Flags
 
-- `--no-ai`: Skip AI enhancement, output base calendar only
 - `--save-json`: Save parsed JSON data (useful for debugging parser)
-- `--save-base`: Save base rendered image (before AI enhancement)
-
-### Cost Optimization Strategy
-
-- Parser uses cheaper text models (deepseek-v3.2) for JSON extraction
-- Enhancement only uses expensive image models when needed
-- `--no-ai` mode enables pure Python operation with zero API costs
+- `--save-html`: Save generated HTML file
+- `--cache-dir`: Specify cache directory
+- `-o, --output`: Specify output file path
+- `--format`: Output format (png/jpg)
 
 ### Error Handling
 
 - JSON schema validation before rendering
 - Date format verification (YYYY-MM-DD)
-- Graceful fallback for missing fonts
-- API failures preserve intermediate outputs when using `--save-base`
+- API failures preserve intermediate outputs when using `--save-json`
 
 ## Development
 
 When adding features:
 
-1. **New style presets**: Add to `STYLE_PRESETS` in `prompts/templates.py`
-2. **New output formats**: Modify `calendar_renderer.py` and update `[output]` config section
-3. **New models**: Update `model` defaults in respective config sections
+1. **New output formats**: Update `[output]` config section
+2. **New models**: Update `model` defaults in respective config sections
+3. **Web renderer styling**: Modify `templates/calendar_template.html`

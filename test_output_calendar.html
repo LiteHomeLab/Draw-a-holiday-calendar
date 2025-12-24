@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>春节 - 放假日历</title>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+            background: #ffffff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .header {
+            background: #f8f9fa;
+            color: #212529;
+            padding: 20px 30px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .info-bar {
+            display: flex;
+            gap: 30px;
+            padding: 20px 40px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            flex-wrap: wrap;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-item .label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        .info-item .value {
+            color: #212529;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .info-item .value.holiday {
+            color: #dc3545;
+        }
+
+        .info-item .value.workday {
+            color: #0d6efd;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-holiday {
+            background: #ffebee;
+            color: #dc3545;
+        }
+
+        .badge-workday {
+            background: #e7f1ff;
+            color: #0d6efd;
+        }
+
+        #calendar {
+            padding: 0;
+        }
+
+        /* FullCalendar 自定义样式 */
+        .fc {
+            font-size: 14px;
+        }
+
+        .fc-toolbar-title {
+            font-size: 20px !important;
+            font-weight: 600 !important;
+        }
+
+        .fc-button {
+            background: #4a90d9 !important;
+            border: 1px solid #357abd !important;
+            border-radius: 4px !important;
+        }
+
+        .fc-button:hover {
+            opacity: 0.9 !important;
+        }
+
+        .fc-daygrid-day-number {
+            color: #495057;
+            font-weight: 500;
+        }
+
+        /* 放假日期样式 */
+        .fc-day.holiday {
+            background: #fff5f5 !important;
+        }
+
+        .fc-day.holiday .fc-daygrid-day-number {
+            color: #dc3545;
+            font-weight: 600;
+        }
+
+        .fc-day.holiday::after {
+            content: '休';
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: #dc3545;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* 补班日期样式 */
+        .fc-day.workday {
+            background: #f0f7ff !important;
+        }
+
+        .fc-day.workday .fc-daygrid-day-number {
+            color: #0d6efd;
+            font-weight: 600;
+        }
+
+        .fc-day.workday::after {
+            content: '班';
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: #0d6efd;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        /* 事件样式 */
+        .fc-event-holiday {
+            background: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .fc-event-workday {
+            background: #0d6efd;
+            border-color: #0d6efd;
+        }
+
+        .notes {
+            padding: 15px 40px 20px;
+            background: #fff9e6;
+            border-top: 1px solid #ffe8a1;
+        }
+
+        .notes-text {
+            color: #856404;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>春节</h1>
+            <div class="subtitle">1月28日至2月4日放假调休，共8天</div>
+        </div>
+
+        <div class="info-bar">
+            <div class="info-item">
+                <span class="label">年份:</span>
+                <span class="value">2025</span>
+            </div>
+            <div class="info-item">
+                <span class="label">放假天数:</span>
+                <span class="value holiday">8 天</span>
+            </div>
+            <div class="info-item">
+                <span class="label">日期范围:</span>
+                <span class="value">2025-01-28 至 2025-02-04</span>
+            </div>
+            
+        </div>
+
+        <div id="calendar"></div>
+
+        
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+
+            // 从嵌入的数据中获取配置
+            const config = {
+                year: 2025,
+                holidays: [{"date": "2025-01-28", "weekday": "星期二", "type": "holiday"}, {"date": "2025-01-29", "weekday": "星期三", "type": "holiday"}, {"date": "2025-01-30", "weekday": "星期四", "type": "holiday"}, {"date": "2025-01-31", "weekday": "星期五", "type": "holiday"}, {"date": "2025-02-01", "weekday": "星期六", "type": "holiday"}, {"date": "2025-02-02", "weekday": "星期日", "type": "holiday"}, {"date": "2025-02-03", "weekday": "星期一", "type": "holiday"}, {"date": "2025-02-04", "weekday": "星期二", "type": "holiday"}],
+                workdays: []
+            };
+
+            // 计算可见范围：从最早日期的所在周一，到最晚日期的所在周日
+            const allDates = [
+                ...config.holidays.map(h => h.date),
+                ...config.workdays.map(w => w.date)
+            ];
+
+            let initialView = 'dayGridMonth';
+            let visibleRange = null;
+            let duration = null;
+
+            if (allDates.length > 0) {
+                allDates.sort();
+                const firstDate = new Date(allDates[0]);
+                const lastDate = new Date(allDates[allDates.length - 1]);
+
+                // 计算天数跨度
+                const dayDiff = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24));
+
+                // 如果跨度在30天内（约4-5周），使用多周视图
+                if (dayDiff <= 30) {
+                    // 找到第一个日期所在周的周一
+                    const firstDayOfWeek = new Date(firstDate);
+                    firstDayOfWeek.setDate(firstDate.getDate() - firstDate.getDay() + 1);
+
+                    // 计算需要显示的周数（至少2周，最多6周）
+                    const weeksNeeded = Math.max(2, Math.min(6, Math.ceil((dayDiff + 7) / 7)));
+
+                    // 使用 dayGridWeek 并设置 duration
+                    initialView = 'dayGridWeek';
+                    duration = { weeks: weeksNeeded };
+
+                    // 设置初始日期为第一天的所在周一
+                    config.initialDate = firstDayOfWeek.toISOString().split('T')[0];
+                }
+            }
+
+            const calendarConfig = {
+                initialView: initialView,
+                locale: 'zh-cn',
+                headerToolbar: {
+                    left: '',
+                    center: 'title',
+                    right: ''
+                },
+                buttonText: {
+                    today: '今天',
+                    month: '月',
+                    week: '周',
+                    list: '列表'
+                },
+                // 简化标题格式：只显示日期范围（完整假期名称已在顶部 header 显示）
+                titleFormat: function(info) {
+                    const year = info.date.year;
+                    const month = info.date.month + 1; // 月份从0开始
+                    return year + '年' + month + '月';
+                },
+                firstDay: 1, // 周一开始
+                events: [
+                    // 放假事件（使用 ISO 8601 格式，确保本地时间）
+                    ...config.holidays.map(h => ({
+                        title: '休',
+                        start: h.date + 'T00:00:00',
+                        backgroundColor: '#dc3545',
+                        borderColor: '#dc3545',
+                        allDay: true,
+                        className: 'fc-event-holiday'
+                    })),
+                    // 补班事件（使用 ISO 8601 格式，确保本地时间）
+                    ...config.workdays.map(w => ({
+                        title: '班 ' + (w.description || ''),
+                        start: w.date + 'T00:00:00',
+                        backgroundColor: '#0d6efd',
+                        borderColor: '#0d6efd',
+                        allDay: true,
+                        className: 'fc-event-workday'
+                    }))
+                ],
+                dayCellClassNames: function(dateInfo) {
+                    // 使用 FullCalendar 提供的标准日期字符串，避免时区问题
+                    const dateStr = dateInfo.dateStr;
+
+                    if (config.holidays.some(h => h.date === dateStr)) {
+                        return ['holiday'];
+                    }
+                    if (config.workdays.some(w => w.date === dateStr)) {
+                        return ['workday'];
+                    }
+                    return [];
+                },
+                height: 'auto',
+                contentHeight: 600,
+                aspectRatio: 1.35,
+                showNonCurrentDates: false,
+                fixedWeekCount: false
+            };
+
+            // 添加动态计算的参数
+            if (duration) {
+                calendarConfig.duration = duration;
+            }
+            if (config.initialDate) {
+                calendarConfig.initialDate = config.initialDate;
+            }
+
+            const calendar = new FullCalendar.Calendar(calendarEl, calendarConfig);
+
+            calendar.render();
+        });
+    </script>
+</body>
+</html>

@@ -101,7 +101,7 @@ class WebCalendarRenderer:
         if self.data.get("notes"):
             notes_html = f'<div class="notes"><div class="notes-text">备注: {self.data["notes"]}</div></div>'
 
-        # 动态计算内容高度
+        # 计算需要显示的月份
         calendar_months = self.data.get("calendar_months")
         if not calendar_months:
             if "month" in self.data:
@@ -110,11 +110,32 @@ class WebCalendarRenderer:
                 start_date = self.data.get("start_date")
                 if start_date:
                     month = datetime.fromisoformat(start_date).month
+                    year = datetime.fromisoformat(start_date).year
                     calendar_months = [month]
+                    # 检查是否需要包含下一个月
+                    end_date = self.data.get("end_date")
+                    if end_date:
+                        end_month = datetime.fromisoformat(end_date).month
+                        end_year = datetime.fromisoformat(end_date).year
+                        if end_month != month or end_year != year:
+                            calendar_months.append(end_month)
                 else:
                     calendar_months = [1]
 
-        # 根据月份数量选择高度
+        # 去重并排序月份
+        calendar_months = sorted(set(calendar_months))
+
+        # 构建月份配置数据
+        year = self.data.get("year", datetime.now().year)
+        months_config = []
+        for month in calendar_months:
+            months_config.append({
+                "year": year,
+                "month": month,
+                "initial_date": f"{year}-{month:02d}-01"
+            })
+
+        # 根据月份数量选择内容高度
         if len(calendar_months) == 1:
             content_height = self._renderer_config["single_month_content_height"]
         else:
@@ -124,7 +145,7 @@ class WebCalendarRenderer:
         replacements = {
             "{{HOLIDAY_NAME}}": self.data.get("holiday_name", "假日日历"),
             "{{DISPLAY_RANGE}}": self.data.get("display_range", ""),
-            "{{YEAR}}": str(self.data.get("year", "")),
+            "{{YEAR}}": str(year),
             "{{TOTAL_DAYS}}": str(self.data.get("total_days", 0)),
             "{{START_DATE}}": self.data.get("start_date", ""),
             "{{END_DATE}}": self.data.get("end_date", ""),
@@ -134,6 +155,8 @@ class WebCalendarRenderer:
             "{{NOTES_HTML}}": notes_html,
             "{{ASPECT_RATIO}}": str(self._renderer_config["aspect_ratio"]),
             "{{CONTENT_HEIGHT}}": str(content_height),
+            "{{MONTHS_COUNT}}": str(len(months_config)),
+            "{{MONTHS_CONFIG}}": json.dumps(months_config, ensure_ascii=False),
         }
 
         html = template

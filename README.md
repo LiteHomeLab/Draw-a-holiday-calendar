@@ -2,13 +2,12 @@
 
 将放假通知文本转换为精美的日历图片的命令行工具。
 
-## 新版特性
+## 特性
 
-**两阶段流水线架构**，实现更可控的输出：
+**流水线架构**，实现更可控的输出：
 
 1. **解析阶段**：AI 解析放假文字 → JSON 结构化数据
-2. **渲染阶段**：Python 使用 JSON 绘制基础日历
-3. **增强阶段**（可选）：AI 图生图美化
+2. **渲染阶段**：使用 FullCalendar 渲染精美的日历图片
 
 ### 新版优势
 
@@ -16,18 +15,15 @@
 |------|------|------|
 | 日期准确性 | 依赖 AI 理解 | 结构化数据保证 |
 | 输出可控性 | 低 | 高（可查看中间结果） |
-| 调试能力 | 难以调试 | 可保存 JSON 和基础图 |
+| 调试能力 | 难以调试 | 可保存 JSON 数据 |
 | 成本 | 单次高成本模型 | 解析用低成本模型 |
-| 纯本地模式 | 不支持 | `--no-ai` 支持 |
 
 ## 功能特点
 
-- 支持多种预设风格（简约商务风、现代多彩风、中国红喜庆风、扁平化设计）
-- 支持自定义绘图指令
-- 支持多种图片比例和分辨率
-- **新增**：`--no-ai` 模式，仅生成基础日历
-- **新增**：`--save-json` 保存解析后的结构化数据
-- **新增**：`--save-base` 保存基础渲染图片
+- 结构化数据保证日期准确性
+- 使用 FullCalendar 渲染美观的现代样式日历
+- `--save-json` 保存解析后的结构化数据
+- `--save-html` 保存生成的 HTML 文件
 - 通过配置文件管理 API Key
 - 命令行接口，便于脚本调用
 
@@ -35,6 +31,7 @@
 
 - Python 3.11+
 - [uv](https://github.com/astral-sh/uv) - Python 包管理工具
+- playwright (用于浏览器截图)
 
 ## 安装
 
@@ -49,7 +46,12 @@ cd Draw-a-holiday-calendar
 uv sync
 ```
 
-3. 配置 API Key
+3. 安装 Playwright 浏览器
+```bash
+uv run playwright install
+```
+
+4. 配置 API Key
 
 编辑 `config.ini` 文件，填入你的 AIHubMix API Key：
 
@@ -62,67 +64,21 @@ api_key = YOUR_API_KEY_HERE
 
 ## 使用方法
 
-### 新版推荐用法
-
 ```bash
-# 完整流水线 (解析 → 渲染 → AI 增强)
+# 生成日历
 uv run python main.py "2025年春节：1月28日至2月4日放假调休，共8天"
 
-# --no-ai 模式 (只生成基础日历，不调用 AI 增强)
-uv run python main.py "2025年春节：1月28日至2月4日放假调休，共8天" --no-ai
+# 保存 JSON 数据
+uv run python main.py "放假通知..." --save-json
 
-# 使用 Web 渲染器 (FullCalendar 前端页面样式)
-uv run python main.py "2025年春节：1月28日至2月4日放假调休，共8天" --web --no-ai
-
-# 保存中间文件 (JSON 数据和基础图片)
-uv run python main.py "放假通知..." --save-json --save-base
+# 保存 HTML 文件
+uv run python main.py "放假通知..." --save-html
 
 # 指定缓存目录
-uv run python main.py "放假通知..." --save-json --save-base --cache-dir "./my_cache"
-```
+uv run python main.py "放假通知..." --save-json --cache-dir "./my_cache"
 
-### 基础用法
-
-```bash
-uv run python main.py "2024年春节放假安排：2月9日至17日放假，共9天"
-```
-
-### 指定输出文件
-
-```bash
+# 指定输出文件
 uv run python main.py "放假通知..." --output my_calendar.png
-```
-
-### 使用不同风格
-
-```bash
-# 现代多彩风
-uv run python main.py "放假通知..." --style "现代多彩风"
-
-# 中国红喜庆风
-uv run python main.py "放假通知..." --style "中国红喜庆风"
-```
-
-### 使用自定义指令
-
-```bash
-uv run python main.py "放假通知..." --custom "使用蓝色主题，添加公司Logo"
-```
-
-### 调整图片比例和分辨率
-
-```bash
-# 正方形，4K 分辨率
-uv run python main.py "放假通知..." --aspect-ratio 1:1 --resolution 4K
-
-# 竖屏，2K 分辨率
-uv run python main.py "放假通知..." --aspect-ratio 9:16 --resolution 2K
-```
-
-### 列出所有可用风格
-
-```bash
-uv run python main.py --list-styles
 ```
 
 ## 命令行参数
@@ -131,26 +87,11 @@ uv run python main.py --list-styles
 |------|------|--------|
 | `holiday_text` | 放假通知文本 | 必需 |
 | `-o, --output` | 输出图片文件路径 | `holiday_calendar_时间戳.png` |
-| `-s, --style` | 图片风格预设 | 简约商务风 |
-| `-c, --custom` | 自定义绘图指令 | 空 |
-| `--aspect-ratio` | 图片比例 | 16:9 |
-| `--resolution` | 图片分辨率 (1K/2K/4K) | 2K |
 | `--format` | 输出格式 (png/jpg) | png |
 | `--config` | 配置文件路径 | config.ini |
-| `--list-styles` | 列出所有可用风格 | - |
-| `--no-ai` | 只生成基础日历，不调用 AI 增强 | False |
 | `--save-json` | 保存解析后的 JSON 数据 | False |
-| `--save-base` | 保存基础渲染图片 | False |
-| `--web` | 使用 FullCalendar Web 渲染器（前端页面样式） | False |
 | `--save-html` | 保存生成的 HTML 文件 | False |
 | `--cache-dir` | 缓存文件存放目录 | `tmp/` |
-
-### 渲染器选择说明
-
-| 渲染器 | 触发条件 | 样式特点 | 依赖 |
-|--------|----------|----------|------|
-| Pillow 渲染器 | 默认（不带 `--web`） | 简洁纯 Python 绘制 | 无额外依赖 |
-| Web 渲染器 | 加 `--web` 参数 | 现代 FullCalendar 前端样式 | 需安装 playwright |
 
 ## 配置文件
 
@@ -163,20 +104,8 @@ api_key = YOUR_API_KEY_HERE
 
 [parser]
 # 文本解析模型（用于解析放假通知文本）
-model = gemini-2.0-flash-exp
-
-[generation]
-# 图生图模型（用于美化基础日历）
-model = gemini-2.5-flash-image
-
-# 图片比例: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
-aspect_ratio = 16:9
-
-# 图片分辨率: 1K, 2K, 4K
-resolution = 2K
-
-# API 基础 URL
-base_url = https://aihubmix.com/gemini
+base_url = https://aihubmix.com/v1
+model = deepseek-v3.2
 
 [output]
 # 默认输出目录 (留空表示当前目录)
@@ -223,29 +152,20 @@ format = png
 }
 ```
 
-## 风格预设
-
-| 风格 | 描述 |
-|------|------|
-| 简约商务风 | 简约黑白灰配色，适合正式场合 |
-| 现代多彩风 | 渐变色彩，现代图标设计 |
-| 中国红喜庆风 | 传统红金配色，灯笼祥云装饰 |
-| 扁平化设计 | 扁平 UI 风格，纯色块设计 |
-
 ## 项目结构
 
 ```
 draw-a-holiday-calendar/
 ├── main.py                 # 入口脚本
 ├── parser_openai.py        # 放假文本解析模块 (OpenAI 兼容 API)
-├── calendar_renderer.py    # 日历渲染模块 (Pillow)
 ├── web_renderer.py         # Web 日历渲染模块 (FullCalendar)
-├── img2img.py              # 图生图增强模块
 ├── config.ini              # 配置文件
 ├── pyproject.toml          # 项目配置
 ├── prompts/
 │   ├── __init__.py
 │   └── templates.py        # 提示词模板
+├── templates/
+│   └── calendar_template.html  # FullCalendar HTML 模板
 ├── tmp/                    # 缓存目录 (自动生成，已加入 .gitignore)
 └── README.md
 ```
@@ -260,19 +180,13 @@ draw-a-holiday-calendar/
 │  Step 1: 解析放假文字                                           │
 │  ┌──────────────┐     ┌──────────────┐      ┌──────────────┐   │
 │  │ 用户输入     │ ──▶ │ AI 解析器    │ ──▶  │ JSON 数据    │   │
-│  │ (文本)       │     │ (gemini-2.0) │      │              │   │
+│  │ (文本)       │     │ (deepseek)   │      │              │   │
 │  └──────────────┘     └──────────────┘      └──────────────┘   │
 │                                                                 │
-│  Step 2: 渲染基础日历                                           │
+│  Step 2: 渲染日历                                               │
 │  ┌──────────────┐     ┌──────────────┐      ┌──────────────┐   │
-│  │ JSON 数据    │ ──▶ │ 日历渲染器   │ ──▶  │ 基础图片    │   │
-│  │              │     │ (Python+PIL) │      │ (PNG/PIL)    │   │
-│  └──────────────┘     └──────────────┘      └──────────────┘   │
-│                                                                 │
-│  Step 3: AI 图像增强 (可选，跳过 if --no-ai)                    │
-│  ┌──────────────┐     ┌──────────────┐      ┌──────────────┐   │
-│  │ 基础图片     │ ──▶ │ 图生图 AI    │ ──▶  │ 最终图片    │   │
-│  │ + 风格提示   │     │ (gemini-2.5) │      │ (美化后)     │   │
+│  │ JSON 数据    │ ──▶ │ Web 渲染器   │ ──▶  │ 最终图片    │   │
+│  │              │     │ (FullCalendar│      │ (PNG)        │   │
 │  └──────────────┘     └──────────────┘      └──────────────┘   │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
