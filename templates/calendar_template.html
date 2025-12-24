@@ -263,14 +263,16 @@
                 wrapper.appendChild(calendarEl);
                 container.appendChild(wrapper);
 
-                // 创建 FullCalendar 实例 - 使用 visibleRange
+                // 计算周数
+                const startDate = new Date(config.viewStartDate);
+                const endDate = new Date(config.viewEndDate);
+                const weekCount = Math.ceil((endDate - startDate) / (7 * 24 * 60 * 60 * 1000));
+
+                // 创建 FullCalendar 实例 - 使用 dayGridWeek + duration
                 const calendar = new FullCalendar.Calendar(calendarEl, {
-                    initialView: 'dayGridMonth',
+                    initialView: 'dayGridWeek',
                     initialDate: config.viewStartDate,
-                    visibleRange: {
-                        start: config.viewStartDate,
-                        end: config.viewEndDate
-                    },
+                    duration: { weeks: weekCount },
                     locale: 'zh-cn',
                     headerToolbar: {
                         left: '',
