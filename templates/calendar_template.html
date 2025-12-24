@@ -263,16 +263,17 @@
                 wrapper.appendChild(calendarEl);
                 container.appendChild(wrapper);
 
-                // 计算周数
-                const startDate = new Date(config.viewStartDate);
-                const endDate = new Date(config.viewEndDate);
-                const weekCount = Math.ceil((endDate - startDate) / (7 * 24 * 60 * 60 * 1000));
-
-                // 创建 FullCalendar 实例 - 使用 dayGridWeek + duration
+                // 创建 FullCalendar 实例 - 使用自定义 4 周视图
                 const calendar = new FullCalendar.Calendar(calendarEl, {
-                    initialView: 'dayGridWeek',
+                    initialView: 'dayGridFourWeek',
+                    views: {
+                        dayGridFourWeek: {
+                            type: 'dayGrid',
+                            duration: { weeks: 4 },
+                            buttonText: '4周'
+                        }
+                    },
                     initialDate: config.viewStartDate,
-                    duration: { days: weekCount * 7 },
                     locale: 'zh-cn',
                     headerToolbar: {
                         left: '',
