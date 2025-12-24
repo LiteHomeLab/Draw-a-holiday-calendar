@@ -149,23 +149,17 @@ def parse_holiday_text(
     )
 
     try:
-        # 使用 OpenAI 兼容的 responses.create API
-        response = client.responses.create(
+        # 使用 OpenAI 兼容的 chat.completions.create API
+        response = client.chat.completions.create(
             model=model,
-            input=prompt,
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
 
-        # 提取并解析 JSON - 处理不同的响应格式
-        if hasattr(response, 'output') and response.output:
-            # GPT-5 风格的响应
-            return _extract_json_from_text(response.output)
-        elif hasattr(response, 'choices') and response.choices:
-            # OpenAI ChatCompletion 风格的响应
-            content = response.choices[0].message.content
-            return _extract_json_from_text(content)
-        else:
-            # 兜底处理
-            return _extract_json_from_text(str(response))
+        # 提取并解析 JSON - OpenAI ChatCompletion 风格的响应
+        content = response.choices[0].message.content
+        return _extract_json_from_text(content)
 
     except Exception as e:
         raise RuntimeError(f"解析放假通知失败: {e}")
