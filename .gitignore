@@ -153,6 +153,9 @@ holiday_data_*.json
 calendar_*.html
 test_calendar.html
 
+# Cache directory
+tmp/
+
 # Config backups
 *_copy.ini
 * copy.ini

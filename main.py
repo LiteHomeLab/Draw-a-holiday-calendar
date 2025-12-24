@@ -75,6 +75,7 @@ def generate_calendar_v2(
     img2img_model: str = "gemini-2.5-flash-image",
     use_web: bool = False,
     save_html: bool = False,
+    cache_dir: Path = None,
 ) -> bytes:
     """
     新版日历生成流程：解析 → 渲染 → (可选)图生图
@@ -95,10 +96,17 @@ def generate_calendar_v2(
         img2img_model: 图生图模型
         use_web: 是否使用 FullCalendar Web 渲染器
         save_html: 是否保存 HTML 文件
+        cache_dir: 缓存文件存放目录，默认为脚本根目录下的 tmp 文件夹
 
     Returns:
         图片二进制数据 (如果是 no_ai 模式，返回基础图片的数据)
     """
+
+    # 设置默认缓存目录
+    if cache_dir is None:
+        cache_dir = Path(__file__).parent / "tmp"
+    # 确保缓存目录存在
+    cache_dir.mkdir(parents=True, exist_ok=True)
 
     # Step 1: 解析放假文本为结构化 JSON
     print("=" * 50)
@@ -125,7 +133,7 @@ def generate_calendar_v2(
     # 保存 JSON 数据
     if save_json:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        json_path = Path.cwd() / f"holiday_data_{timestamp}.json"
+        json_path = cache_dir / f"holiday_data_{timestamp}.json"
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(holiday_data, f, ensure_ascii=False, indent=2)
         print(f"  JSON 已保存: {json_path}")
@@ -146,13 +154,13 @@ def generate_calendar_v2(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if save_html:
-            html_path = Path.cwd() / f"calendar_{timestamp}.html"
+            html_path = cache_dir / f"calendar_{timestamp}.html"
         else:
             html_path = None
 
         # 渲染并截图
         screenshot_path = web_renderer.render(
-            output_path=Path.cwd() / f"calendar_web_{timestamp}.png",
+            output_path=cache_dir / f"calendar_web_{timestamp}.png",
             width=1400,
             height=1000,
             save_html=save_html,
@@ -178,7 +186,7 @@ def generate_calendar_v2(
         # 保存基础图片
         if save_base:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            base_path = Path.cwd() / f"calendar_base_{timestamp}.png"
+            base_path = cache_dir / f"calendar_base_{timestamp}.png"
             base_image.save(base_path)
             print(f"  基础日历已保存: {base_path}")
 
@@ -420,6 +428,13 @@ def parse_arguments() -> argparse.Namespace:
         help="保存生成的 HTML 文件",
     )
 
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="缓存文件存放目录 (默认: 脚本根目录下的 tmp 文件夹)",
+    )
+
     return parser.parse_args()
 
 
@@ -477,6 +492,7 @@ def main() -> int:
             img2img_model=img2img_model,
             use_web=args.web,
             save_html=args.save_html,
+            cache_dir=args.cache_dir,
         )
 
         # 确定输出路径

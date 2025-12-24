@@ -39,12 +39,25 @@ class CalendarRenderer:
             holiday_data: 从 parse_holiday_text 返回的 JSON 数据
         """
         self.data = holiday_data
-        self.holiday_set = set(holiday_data.get("holiday_dates", []))
 
-        # 构建调休日期字典
+        # 兼容新旧两种数据格式
+        # 新格式: [{"date": "2026-02-12", "type": "holiday"}, ...]
+        # 旧格式: ["2026-02-12", "2026-02-13", ...]
+        holiday_dates_raw = holiday_data.get("holiday_dates", [])
+        self.holiday_set = set()
+        for item in holiday_dates_raw:
+            if isinstance(item, dict):
+                self.holiday_set.add(item["date"])
+            else:
+                self.holiday_set.add(item)
+
+        # 构建调休日期字典（兼容新旧格式）
         self.makeup_days = {}
         for m in holiday_data.get("makeup_workdays", []):
-            self.makeup_days[m["date"]] = m.get("description", "调休上班")
+            if isinstance(m, dict):
+                self.makeup_days[m["date"]] = m.get("description", "调休上班")
+            else:
+                self.makeup_days[m] = "调休上班"
 
     def _get_font(self, size: int = 20, bold: bool = False) -> ImageFont.FreeTypeFont:
         """
@@ -283,7 +296,21 @@ class CalendarRenderer:
             y_offset += 30
 
         # 绘制月份日历
-        calendar_months = self.data.get("calendar_months", [self.data["month"]])
+        # 兼容新旧格式：如果没有 calendar_months，从 month 或 start_date 中提取
+        calendar_months = self.data.get("calendar_months")
+        if not calendar_months:
+            # 尝试从 month 字段获取
+            if "month" in self.data:
+                calendar_months = [self.data["month"]]
+            else:
+                # 从 start_date 中提取月份
+                from datetime import datetime
+                start_date = self.data.get("start_date")
+                if start_date:
+                    month = datetime.fromisoformat(start_date).month
+                    calendar_months = [month]
+                else:
+                    calendar_months = [1]  # 默认值
 
         # 如果需要显示多个月份，使用两列布局
         if len(calendar_months) > 2:
