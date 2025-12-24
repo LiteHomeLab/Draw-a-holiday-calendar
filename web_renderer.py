@@ -112,9 +112,13 @@ class WebCalendarRenderer:
             # 向后扩展
             end_sunday += timedelta(days=int((4 - week_count - padding_weeks) * 7))
 
+        # FullCalendar 的 visibleRange.end 是不包含的（exclusive）
+        # 所以需要加 1 天来确保包含 end_sunday 这一天
+        end_sunday_exclusive = end_sunday + timedelta(days=1)
+
         return {
             "start_date": start_monday.strftime("%Y-%m-%d"),
-            "end_date": end_sunday.strftime("%Y-%m-%d")
+            "end_date": end_sunday_exclusive.strftime("%Y-%m-%d")
         }
 
     def _should_use_continuous_view(self) -> bool:
