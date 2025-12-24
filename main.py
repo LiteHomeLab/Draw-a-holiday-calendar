@@ -26,11 +26,6 @@ from img2img import enhance_with_img2img, build_img2img_prompt
 from parser_openai import parse_holiday_text, validate_holiday_data
 from web_renderer import WebCalendarRenderer
 
-# 保留旧版兼容性
-from google import genai
-from google.genai import types
-from prompts import build_prompt, get_available_styles
-
 
 # 配置文件路径
 CONFIG_FILE = Path(__file__).parent / "config.ini"
@@ -62,8 +57,6 @@ def get_api_key(config: configparser.ConfigParser) -> str:
 def generate_calendar_v2(
     holiday_text: str,
     api_key: str,
-    style: str = "简约商务风",
-    custom_instruction: str = "",
     aspect_ratio: str = "16:9",
     resolution: str = "2K",
     parser_base_url: str = "https://aihubmix.com/v1",
@@ -83,8 +76,6 @@ def generate_calendar_v2(
     Args:
         holiday_text: 放假通知文本
         api_key: API Key
-        style: 图片风格
-        custom_instruction: 自定义指令
         aspect_ratio: 图片比例
         resolution: 图片分辨率
         parser_base_url: Parser API 基础 URL (OpenAI 兼容)
@@ -202,7 +193,7 @@ def generate_calendar_v2(
     print("Step 3: AI 图像增强...")
     print("=" * 50)
 
-    img2img_prompt = build_img2img_prompt(style, custom_instruction)
+    img2img_prompt = build_img2img_prompt()
 
     enhanced_data = enhance_with_img2img(
         base_image=base_image,
@@ -215,71 +206,6 @@ def generate_calendar_v2(
     )
 
     return enhanced_data
-
-
-# ========== 保留旧版 API 以兼容性 ==========
-
-def generate_calendar(
-    holiday_text: str,
-    api_key: str,
-    style: str = "简约商务风",
-    custom_instruction: str = "",
-    aspect_ratio: str = "16:9",
-    resolution: str = "2K",
-    base_url: str = "https://aihubmix.com/gemini",
-    model: str = "gemini-3-pro-image-preview",
-) -> Optional[bytes]:
-    """
-    旧版 API：直接调用 Gemini 生成日历图片
-
-    Args:
-        holiday_text: 放假通知文本
-        api_key: API Key
-        style: 图片风格
-        custom_instruction: 自定义指令
-        aspect_ratio: 图片比例
-        resolution: 图片分辨率
-        base_url: API 基础 URL
-        model: 模型名称
-
-    Returns:
-        图片二进制数据
-    """
-    # 构造提示词
-    prompt = build_prompt(holiday_text, style, custom_instruction)
-
-    # 初始化客户端
-    client = genai.Client(
-        api_key=api_key,
-        http_options={"base_url": base_url},
-    )
-
-    # 调用 API 生成图片
-    print(f"正在调用 {model} 生成日历图片...")
-    print(f"风格: {style}")
-    print(f"比例: {aspect_ratio}, 分辨率: {resolution}")
-
-    response = client.models.generate_content(
-        model=model,
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            response_modalities=["TEXT", "IMAGE"],
-            image_config=types.ImageConfig(
-                aspect_ratio=aspect_ratio,
-                image_size=resolution,
-            ),
-        ),
-    )
-
-    # 提取图片数据
-    for part in response.parts:
-        if part.text:
-            print(f"AI 响应: {part.text}")
-        elif inline_data := part.inline_data:
-            # 直接返回图片二进制数据
-            return inline_data.data
-
-    raise RuntimeError("未能从 API 响应中获取图片数据")
 
 
 def save_image(image_data: bytes, output_path: Path) -> None:
@@ -326,14 +252,8 @@ def parse_arguments() -> argparse.Namespace:
   # 指定输出文件
   python main.py "放假通知..." --output my_calendar.png
 
-  # 使用不同风格
-  python main.py "放假通知..." --style "中国红喜庆风"
-
-  # 使用自定义指令
-  python main.py "放假通知..." --custom "使用蓝色主题，添加公司Logo"
-
-  # 列出所有可用风格
-  python main.py --list-styles
+  # 使用 Web 渲染器
+  python main.py "放假通知..." --web --save-html
         """
     )
 
@@ -347,19 +267,6 @@ def parse_arguments() -> argparse.Namespace:
         "-o", "--output",
         type=Path,
         help="输出图片文件路径 (默认: holiday_calendar_时间戳.png)",
-    )
-
-    parser.add_argument(
-        "-s", "--style",
-        default="简约商务风",
-        choices=get_available_styles(),
-        help="图片风格预设",
-    )
-
-    parser.add_argument(
-        "-c", "--custom",
-        default="",
-        help="自定义绘图指令（覆盖风格预设）",
     )
 
     parser.add_argument(
@@ -381,12 +288,6 @@ def parse_arguments() -> argparse.Namespace:
         type=Path,
         default=CONFIG_FILE,
         help=f"配置文件路径 (默认: {CONFIG_FILE})",
-    )
-
-    parser.add_argument(
-        "--list-styles",
-        action="store_true",
-        help="列出所有可用的风格预设",
     )
 
     parser.add_argument(
@@ -442,13 +343,6 @@ def main() -> int:
     """主函数"""
     args = parse_arguments()
 
-    # 列出风格
-    if args.list_styles:
-        print("可用的风格预设:")
-        for style in get_available_styles():
-            print(f"  - {style}")
-        return 0
-
     # 检查必需参数
     if not args.holiday_text:
         print("错误: 请提供放假通知文本", file=sys.stderr)
@@ -479,8 +373,6 @@ def main() -> int:
         image_data = generate_calendar_v2(
             holiday_text=args.holiday_text,
             api_key=api_key,
-            style=args.style,
-            custom_instruction=args.custom,
             aspect_ratio=args.aspect_ratio,
             resolution=args.resolution,
             parser_base_url=parser_base_url,

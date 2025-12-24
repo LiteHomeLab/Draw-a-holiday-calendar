@@ -1,3 +1,5 @@
-from .templates import build_prompt, get_available_styles, STYLE_PRESETS
+# Prompts module - 图生图精绘提示词
+# 从 templates.py 导入所需内容
+from .templates import FULL_PROMPT
 
-__all__ = ["build_prompt", "get_available_styles", "STYLE_PRESETS"]
+__all__ = ["FULL_PROMPT"]

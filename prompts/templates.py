@@ -1,162 +1,33 @@
 """
 提示词模板模块
-用于构造发送给 Gemini 3 Pro Image Preview 的提示词
+图生图精绘提示词 - 统一通用高质量风格
 """
 
-from typing import Dict, Optional
+# 图生图核心提示词 - 统一精绘风格
+# 基于 AI 最佳实践，明确"什么不变"和"允许改什么"
+IMG2IMG_PROMPT = """Enhance and polish this UI design of a holiday calendar. The goal is to make it more elegant, modern, and professional.
 
+**CRITICAL INSTRUCTIONS (MUST FOLLOW):**
+1. **Strictly preserve the original layout and structure.** Do not move the header, metadata, or the calendar grid.
+2. **Ensure 100% accuracy and legibility of all text and numbers.** All Chinese characters ("春节", "休", "班") and dates must be perfectly identical to the original image.
+3. **Maintain the core color-coding logic:** a red mark for holidays ("休") and a blue mark for workdays ("班").
 
-# 风格预设（用于文生图）
-STYLE_PRESETS: Dict[str, str] = {
-    "简约商务风": """
-Design a clean, minimalist business holiday calendar. Use black, white, and gray color scheme with subtle accent colors.
-- Professional and elegant layout
-- Clear typography, easy to read
-- Minimalist icons and decorations
-- Suitable for corporate communication
-""",
+**Allowed enhancements:**
+- Refine the color palette to be more harmonious and sophisticated.
+- Improve typography for better visual hierarchy and elegance.
+- Add subtle, soft drop shadows to the main card for a gentle sense of depth (Material Design or neumorphism lite).
+- Replace the simple background gradient with a more refined, abstract, or soft-focus background.
 
-    "现代多彩风": """
-Design a modern, colorful holiday calendar. Use vibrant gradients and contemporary design elements.
-- Bright, cheerful color palette
-- Modern icons and illustrations
-- Eye-catching visual elements
-- Social media friendly style
-""",
-
-    "中国红喜庆风": """
-Design a traditional Chinese holiday calendar with festive red and gold colors.
-- Traditional Chinese aesthetic
-- Red and gold color scheme
-- Lanterns, clouds, or other traditional patterns as decorations
-- Festive and celebratory atmosphere
-""",
-
-    "扁平化设计": """
-Design a flat design holiday calendar. Use flat colors and simple geometric shapes.
-- Flat UI design style
-- Simple geometric shapes
-- Solid colors without gradients
-- Clean and modern appearance
-""",
-}
-
-
-# 图生图专用提示词模板
-# 基于专业 AI 建议的三层结构：核心提示词 + 风格修饰词 + 反向提示词
-
-# 核心提示词 - 确保所有关键信息被保留
-IMG2IMG_CORE_PROMPT = """A beautifully designed calendar page for the Chinese New Year (Spring Festival), showing February 2026. The layout is clean, elegant, and highly readable.
-
-**Key elements to preserve:**
-- Main title in large Chinese characters: "春节" (chūnjié).
-- A clear grid for the month of February 2026, with days of the week (Mon to Sun).
-- All dates from 1 to 28 are clearly visible.
-- **Holiday dates (Feb 12 to 25) are prominently marked in a festive red color**, each showing the Chinese character "休" (xiū, meaning "rest").
-- **A make-up workday (Feb 27) is clearly marked in a distinct color like blue or grey**, showing the Chinese character "班" (bān, meaning "work").
-- The overall aesthetic is celebratory but professional, suitable for a holiday announcement.
-
-**Critical Requirements:**
-- Perfectly rendered Chinese characters - all text must be 100% accurate
-- Preserve ALL date information exactly as shown
-- Do NOT change any factual information
-- Award-winning graphic design, UI design, Behance, Dribbble, 4K, high detail
+**Keywords:** UI/UX design, minimalist, clean, sharp focus, high detail, Behance, Dribbble, professional graphic design.
 """
 
-# 反向提示词 - 避免生成错误内容
-IMG2IMG_NEGATIVE_PROMPT = """blurry, fuzzy, distorted grid, warped text, illegible characters, incorrect Chinese characters, wrong dates, missing numbers, ugly, deformed, weird, watermark, signature, extra limbs, bad anatomy, cluttered, messy, photo, photorealistic"""
-
-# 图生图风格预设 - 更详细的风格描述
-IMG2IMG_STYLE_PRESETS: Dict[str, Dict[str, str]] = {
-    "国风水墨风": {
-        "style_modifiers": """
-Style A: Traditional Chinese Ink Wash & Paper Art Style
-- traditional Chinese painting style, ink wash (guohua), on textured rice paper (xuan paper)
-- intricate papercraft, kirigami, layered paper art, diorama, soft shadows
-- adorned with auspicious clouds (xiangyun), red lanterns, and subtle peony flower patterns
-- The red '休' marks are in the style of a traditional cinnabar seal stamp
-- warm color palette, imperial red, gold foil accents, dark ink
-- Studio lighting casts soft shadows, giving it a 3D feel
-""",
-        "description": "传统水墨与纸艺风格，典雅精致"
-    },
-
-    "现代插画风": {
-        "style_modifiers": """
-Style B: Modern Flat Illustration & Animation Style
-- modern flat illustration, vector art, graphic design, clean lines
-- MG animation style, trendy, bold colors
-- isometric illustration, cute, playful
-- featuring festive elements like firecrackers and gold ingots (yuanbao)
-- vibrant color palette, neon accents, high contrast, gradients
-- The overall feeling is energetic and festive
-""",
-        "description": "现代扁平插画风格，色彩鲜明活泼"
-    },
-
-    "可爱3D风": {
-        "style_modifiers": """
-Style C: Cute 3D Clay & Plasticine Style
-- charming 3D render, claymation style, plasticine art, soft and squishy
-- Blender 3D, octane render, soft diffused lighting
-- isometric 3D diorama
-- decorated with cute miniature clay models of lanterns, lucky knots
-- soft texture, matte finish
-- The scene is lit with soft, warm lighting
-""",
-        "description": "可爱3D粘土风格，温暖有质感"
-    },
-
-    "简约商务风": {
-        "style_modifiers": """
-Style D: Minimalist Business Style
-- clean, minimalist business design
-- black, white, and gray color scheme with subtle accent colors
-- Professional and elegant layout
-- Clear typography, Sans-serif fonts
-- Minimalist icons and decorations
-- Suitable for corporate communication
-""",
-        "description": "简约商务风格，专业优雅"
-    },
-}
-
-
-def build_prompt(holiday_text: str, style: str = "简约商务风", custom_instruction: str = "") -> str:
-    """
-    构造完整的提示词
-
-    Args:
-        holiday_text: 放假通知文本
-        style: 风格预设名称
-        custom_instruction: 自定义指令（会覆盖风格预设）
-
-    Returns:
-        完整的提示词字符串
-    """
-    style_instruction = custom_instruction if custom_instruction else STYLE_PRESETS.get(style, STYLE_PRESETS["简约商务风"])
-
-    prompt = f"""Create a holiday calendar image based on the following holiday notice:
-
-Holiday Notice:
-{holiday_text}
-
-Style Requirements:
-{style_instruction}
-
-Additional Instructions:
-- Parse the holiday notice to extract exact dates and duration
-- Display the calendar clearly showing all holiday dates
-- Include a title indicating the holiday name
-- Show the date range (start date to end date)
-- Mark working days before/after the holiday if mentioned
-- Use a clear grid layout for the calendar
-- Include any special notes (e.g., makeup work days)
-- Output should be a high-quality calendar image suitable for sharing
+# 反向提示词 - 防止生成错误内容
+NEGATIVE_PROMPT = """major layout changes, different text, incorrect numbers, wrong dates, illegible characters, distorted grid, blurry, pixelated, hand-drawn, cartoon, 3D render, photo, cluttered, messy, watermark, signature.
 """
-    return prompt
 
+# 完整提示词 - 组合核心提示词和反向提示词
+FULL_PROMPT = f"""{IMG2IMG_PROMPT}
 
-def get_available_styles() -> list[str]:
-    """获取所有可用的风格预设名称"""
-    return list(STYLE_PRESETS.keys())
+**Avoid:**
+{NEGATIVE_PROMPT}
+"""
