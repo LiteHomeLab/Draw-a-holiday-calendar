@@ -24,6 +24,7 @@ from PIL import Image
 from calendar_renderer import CalendarRenderer
 from img2img import enhance_with_img2img, build_img2img_prompt
 from parser_openai import parse_holiday_text, validate_holiday_data
+from web_renderer import WebCalendarRenderer
 
 # 保留旧版兼容性
 from google import genai
@@ -72,6 +73,8 @@ def generate_calendar_v2(
     save_base: bool = False,
     parser_model: str = "deepseek-v3.2",
     img2img_model: str = "gemini-2.5-flash-image",
+    use_web: bool = False,
+    save_html: bool = False,
 ) -> bytes:
     """
     新版日历生成流程：解析 → 渲染 → (可选)图生图
@@ -90,6 +93,8 @@ def generate_calendar_v2(
         save_base: 是否保存基础日历图片
         parser_model: 文本解析模型
         img2img_model: 图生图模型
+        use_web: 是否使用 FullCalendar Web 渲染器
+        save_html: 是否保存 HTML 文件
 
     Returns:
         图片二进制数据 (如果是 no_ai 模式，返回基础图片的数据)
@@ -125,27 +130,64 @@ def generate_calendar_v2(
             json.dump(holiday_data, f, ensure_ascii=False, indent=2)
         print(f"  JSON 已保存: {json_path}")
 
-    # Step 2: 使用 Python 渲染基础日历
+    # Step 2: 渲染基础日历
     print("\n" + "=" * 50)
-    print("Step 2: 渲染基础日历...")
+    if use_web:
+        print("Step 2: 使用 FullCalendar 渲染日历...")
+    else:
+        print("Step 2: 渲染基础日历...")
     print("=" * 50)
 
-    renderer = CalendarRenderer(holiday_data)
-    base_image = renderer.render()
+    if use_web:
+        # 使用 Web 渲染器
+        web_renderer = WebCalendarRenderer(holiday_data)
 
-    # 保存基础图片
-    if save_base:
+        # 生成临时文件路径
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        base_path = Path.cwd() / f"calendar_base_{timestamp}.png"
-        base_image.save(base_path)
-        print(f"  基础日历已保存: {base_path}")
 
-    # --no-ai 模式：直接返回基础图片
-    if no_ai:
-        print("\n--no-ai 模式: 跳过 AI 增强，使用基础日历")
-        img_buffer = BytesIO()
-        base_image.save(img_buffer, format="PNG")
-        return img_buffer.getvalue()
+        if save_html:
+            html_path = Path.cwd() / f"calendar_{timestamp}.html"
+        else:
+            html_path = None
+
+        # 渲染并截图
+        screenshot_path = web_renderer.render(
+            output_path=Path.cwd() / f"calendar_web_{timestamp}.png",
+            width=1400,
+            height=1000,
+            save_html=save_html,
+            html_path=html_path
+        )
+
+        # 读取截图数据
+        with open(screenshot_path, "rb") as f:
+            image_data = f.read()
+
+        # --no-ai 模式：直接返回 Web 渲染结果
+        if no_ai:
+            print("\n--no-ai 模式: 使用 Web 渲染日历")
+            return image_data
+
+        base_image = Image.open(BytesIO(image_data))
+
+    else:
+        # 使用 Pillow 渲染器
+        renderer = CalendarRenderer(holiday_data)
+        base_image = renderer.render()
+
+        # 保存基础图片
+        if save_base:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_path = Path.cwd() / f"calendar_base_{timestamp}.png"
+            base_image.save(base_path)
+            print(f"  基础日历已保存: {base_path}")
+
+        # --no-ai 模式：直接返回基础图片
+        if no_ai:
+            print("\n--no-ai 模式: 跳过 AI 增强，使用基础日历")
+            img_buffer = BytesIO()
+            base_image.save(img_buffer, format="PNG")
+            return img_buffer.getvalue()
 
     # Step 3: 使用图生图 API 进行风格化
     print("\n" + "=" * 50)
@@ -365,6 +407,19 @@ def parse_arguments() -> argparse.Namespace:
         help="保存基础渲染的日历图片",
     )
 
+    # Web 渲染器参数
+    parser.add_argument(
+        "--web",
+        action="store_true",
+        help="使用 FullCalendar Web 渲染器（需要安装 playwright）",
+    )
+
+    parser.add_argument(
+        "--save-html",
+        action="store_true",
+        help="保存生成的 HTML 文件",
+    )
+
     return parser.parse_args()
 
 
@@ -420,6 +475,8 @@ def main() -> int:
             save_base=args.save_base,
             parser_model=parser_model,
             img2img_model=img2img_model,
+            use_web=args.web,
+            save_html=args.save_html,
         )
 
         # 确定输出路径

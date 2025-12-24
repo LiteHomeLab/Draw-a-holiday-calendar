@@ -144,3 +144,20 @@ cython_debug/
 # Project specific
 config.ini
 *.png
+
+# uv package manager
+.uv-cache/
+
+# Generated files (runtime output)
+holiday_data_*.json
+calendar_*.html
+test_calendar.html
+
+# Config backups
+*_copy.ini
+* copy.ini
+
+# Windows
+Thumbs.db
+Desktop.ini
+~$*
