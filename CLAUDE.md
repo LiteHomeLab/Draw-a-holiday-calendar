@@ -108,6 +108,22 @@ format = png
 - Date format verification (YYYY-MM-DD)
 - API failures preserve intermediate outputs when using `--save-json`
 
+### Cross-Month Continuous Week View
+
+当假期跨越两个月时，系统会自动使用连续周视图：
+
+- **检测机制**: 通过 `calendar_months` 字段或 `start_date`/`end_date` 跨月检测
+- **视图范围**: 从假期开始周的周一到补班结束周的周日
+- **最小周数**: 不足4周时平衡扩展，确保至少显示4周
+- **实现方式**: 使用 FullCalendar 的 `visibleRange` 配置在单一日历实例中渲染
+- **向后兼容**: 单月视图保持原有行为不变
+
+示例：
+```
+输入: "2025年春节：1月28日至2月4日放假调休，共8天"
+输出: 连续周视图，范围 2025-01-20 至 2025-02-16（4周）
+```
+
 ## Development
 
 When adding features:
