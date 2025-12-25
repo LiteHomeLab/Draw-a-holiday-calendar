@@ -205,13 +205,13 @@
             font-size: 14px;
         }
 
-        /* 月份背景色区分 */
-        .fc-day.month-odd {
-            background: #f8f9fa !important;
+        /* 月份背景色区分 - 仅应用于普通日期（非假期/非补班） */
+        .fc-day.month-odd:not(.holiday):not(.workday) {
+            background: #f0f4f8 !important;
         }
 
-        .fc-day.month-even {
-            background: #fffbf0 !important;
+        .fc-day.month-even:not(.holiday):not(.workday) {
+            background: #fff8e6 !important;
         }
     </style>
 </head>
@@ -311,20 +311,15 @@
                             className: 'fc-event-workday'
                         }))
                     ],
-                    dayCellClassNames: function(dateInfo) {
-                        if (!dateInfo.dateStr) return [];
-                        var dateStr = dateInfo.dateStr;
+                    dayCellDidMount: function(info) {
+                        // Use data-date attribute to get the correct date
+                        var dateStr = info.el.getAttribute('data-date');
+                        if (!dateStr) return;
                         var parts = dateStr.split('-');
-                        if (parts.length < 2) return [];
+                        if (parts.length < 2) return;
                         var monthNum = parseInt(parts[1], 10);
                         var monthClass = (monthNum % 2 === 0) ? 'month-even' : 'month-odd';
-                        if (config.holidays.some(h => h.date === dateStr)) {
-                            return ['holiday', monthClass];
-                        }
-                        if (config.workdays.some(w => w.date === dateStr)) {
-                            return ['workday', monthClass];
-                        }
-                        return [monthClass];
+                        info.el.classList.add(monthClass);
                     },
                     height: 'auto',
                     contentHeight: {{CONTENT_HEIGHT}},
@@ -388,20 +383,15 @@
                                 className: 'fc-event-workday'
                             }))
                         ],
-                        dayCellClassNames: function(dateInfo) {
-                            if (!dateInfo.dateStr) return [];
-                            var dateStr = dateInfo.dateStr;
+                        dayCellDidMount: function(info) {
+                            // Use data-date attribute to get the correct date
+                            var dateStr = info.el.getAttribute('data-date');
+                            if (!dateStr) return;
                             var parts = dateStr.split('-');
-                            if (parts.length < 2) return [];
+                            if (parts.length < 2) return;
                             var monthNum = parseInt(parts[1], 10);
                             var monthClass = (monthNum % 2 === 0) ? 'month-even' : 'month-odd';
-                            if (config.holidays.some(h => h.date === dateStr)) {
-                                return ['holiday', monthClass];
-                            }
-                            if (config.workdays.some(w => w.date === dateStr)) {
-                                return ['workday', monthClass];
-                            }
-                            return [monthClass];
+                            info.el.classList.add(monthClass);
                         },
                         height: 'auto',
                         contentHeight: {{CONTENT_HEIGHT}},
