@@ -312,10 +312,12 @@
                         }))
                     ],
                     dayCellClassNames: function(dateInfo) {
-                        const dateStr = dateInfo.dateStr;
-                        const month = parseInt(dateStr.split('-')[1]);
-                        const monthClass = month % 2 === 0 ? 'month-even' : 'month-odd';
-
+                        if (!dateInfo.dateStr) return [];
+                        var dateStr = dateInfo.dateStr;
+                        var parts = dateStr.split('-');
+                        if (parts.length < 2) return [];
+                        var monthNum = parseInt(parts[1], 10);
+                        var monthClass = (monthNum % 2 === 0) ? 'month-even' : 'month-odd';
                         if (config.holidays.some(h => h.date === dateStr)) {
                             return ['holiday', monthClass];
                         }
@@ -387,10 +389,12 @@
                             }))
                         ],
                         dayCellClassNames: function(dateInfo) {
-                            const dateStr = dateInfo.dateStr;
-                            const month = parseInt(dateStr.split('-')[1]);
-                            const monthClass = month % 2 === 0 ? 'month-even' : 'month-odd';
-
+                            if (!dateInfo.dateStr) return [];
+                            var dateStr = dateInfo.dateStr;
+                            var parts = dateStr.split('-');
+                            if (parts.length < 2) return [];
+                            var monthNum = parseInt(parts[1], 10);
+                            var monthClass = (monthNum % 2 === 0) ? 'month-even' : 'month-odd';
                             if (config.holidays.some(h => h.date === dateStr)) {
                                 return ['holiday', monthClass];
                             }
